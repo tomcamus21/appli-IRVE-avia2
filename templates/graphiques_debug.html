@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug - Test données</title>
+</head>
+<body>
+    <h1>Debug des données</h1>
+    
+    <h2>Structure graphiques_stations :</h2>
+    <pre>{{ graphiques_stations | tojson(indent=2) }}</pre>
+    
+    <h2>Test pour chaque station :</h2>
+    {% for station_id, station_data in graphiques_stations.items() %}
+        <div style="border: 1px solid black; margin: 10px; padding: 10px;">
+            <h3>Station ID: {{ station_id }}</h3>
+            <p>Nom: {{ station_data.name }}</p>
+            <p>Nb places: {{ station_data.data.nb_places }}</p>
+            <h4>Dates (5 premiers) :</h4>
+            <pre>{{ station_data.data.dates[:5] }}</pre>
+            <h4>Type de dates :</h4>
+            <pre>{{ station_data.data.dates.__class__.__name__ }}</pre>
+        </div>
+    {% endfor %}
+</body>
+</html>

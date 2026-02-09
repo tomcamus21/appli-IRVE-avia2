@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques Stations AVIA VOLT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .card {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .station-checkbox {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background-color: white;
+        }
+        .station-checkbox:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h1 class="h3 mb-0">📊 Statistiques Stations AVIA VOLT</h1>
+                    <button type="button" class="btn btn-light" id="updateDataBtn" onclick="updateData()">
+                        🔄 Mettre à jour les données
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="/generer" method="POST">
+                    <!-- Période -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="date_debut" class="form-label"><strong>Date de début</strong></label>
+                            <input type="date" class="form-control" id="date_debut" name="date_debut" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="date_fin" class="form-label"><strong>Date de fin</strong></label>
+                            <input type="date" class="form-control" id="date_fin" name="date_fin" required>
+                        </div>
+                    </div>
+
+                    <!-- Sélection des stations -->
+                    <div class="mb-4">
+                        <label class="form-label"><strong>Sélectionner les stations</strong></label>
+                        <div class="border rounded p-3" style="max-height: 400px; overflow-y: auto;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="select_all">
+                                <label class="form-check-label fw-bold" for="select_all">
+                                    Tout sélectionner
+                                </label>
+                            </div>
+                            <hr>
+                            {% for station in stations %}
+                            <div class="form-check station-checkbox">
+                                <input class="form-check-input station-check" type="checkbox" 
+                                       name="stations" value="{{ station[0] }}" id="station_{{ station[0] }}">
+                                <label class="form-check-label" for="station_{{ station[0] }}">
+                                    {{ station[1] }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Bouton de validation -->
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <button type="submit" formaction="/generer" class="btn btn-primary btn-lg w-100">
+                                📊 Générer les tableaux
+                            </button>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <button type="submit" formaction="/graphiques" class="btn btn-success btn-lg w-100">
+                                📈 Générer les graphiques
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Tout sélectionner / désélectionner
+        document.getElementById('select_all').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.station-check');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+
+        // Définir les dates par défaut (dernier mois)
+        const today = new Date();
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        
+        document.getElementById('date_fin').valueAsDate = today;
+        document.getElementById('date_debut').valueAsDate = lastMonth;
+
+        // Fonction pour mettre à jour les données
+        async function updateData() {
+            const btn = document.getElementById('updateDataBtn');
+            const originalText = btn.innerHTML;
+            
+            // Désactiver le bouton et afficher un spinner
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Mise à jour en cours...';
+            
+            try {
+                const response = await fetch('/update_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                // Créer le message de résultat
+                let message = '';
+                let alertClass = '';
+                
+                if (data.success) {
+                    alertClass = 'alert-success';
+                    message = '<strong>✅ Mise à jour réussie !</strong><br><br>';
+                    
+                    data.results.forEach(result => {
+                        if (result.status === 'success') {
+                            message += `<div class="mb-2">
+                                <strong>${result.source}:</strong> ${result.message}
+                            </div>`;
+                        }
+                    });
+                    
+                    // Recharger la page après 2 secondes pour afficher les nouvelles données
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alertClass = 'alert-danger';
+                    message = '<strong>❌ Erreur lors de la mise à jour</strong><br><br>';
+                    
+                    data.results.forEach(result => {
+                        message += `<div class="mb-2">
+                            <strong>${result.source}:</strong> ${result.message}
+                            ${result.output ? '<br><small class="text-muted">' + result.output + '</small>' : ''}
+                        </div>`;
+                    });
+                }
+                
+                // Afficher le message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert ${alertClass} alert-dismissible fade show mt-3`;
+                alertDiv.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                document.querySelector('.card-body').insertBefore(
+                    alertDiv, 
+                    document.querySelector('.card-body').firstChild
+                );
+                
+            } catch (error) {
+                // Afficher l'erreur
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+                alertDiv.innerHTML = `
+                    <strong>❌ Erreur de connexion</strong><br>
+                    ${error.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                document.querySelector('.card-body').insertBefore(
+                    alertDiv, 
+                    document.querySelector('.card-body').firstChild
+                );
+            } finally {
+                // Réactiver le bouton
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    </script>
+</body>
+</html>
